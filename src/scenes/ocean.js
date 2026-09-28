@@ -36,7 +36,7 @@ export function jeans(ctx, x, y, s, r = 0, state = 'flat', t = 0) {
     if (puff) for (let i = 0; i < 3; i++) sparkle(ctx, -60 + i * 60, -120 + (i % 2) * 20, 12 * Math.abs(Math.sin(t * 4 + i)), P.white);
   });
 }
-function jeansFloat(ctx, x, y, s, t) {
+export function jeansFloat(ctx, x, y, s, t) {
   tx(ctx, { x, y, s }, () => {
     for (const sd of [-1, 1]) {
       const pts = [[sd * 30, -150], [sd * 120, -120], [sd * 170, -30], [sd * 190, 40]];
@@ -47,7 +47,7 @@ function jeansFloat(ctx, x, y, s, t) {
     line(ctx, [[-40, -160], [40, -160]], { color: '#46679A', lw: 36, outline: 3 });
   });
 }
-function sharkFin(ctx, x, y, s, flip = false) {
+export function sharkFin(ctx, x, y, s, flip = false) {
   tx(ctx, { x, y, s, sx: flip ? -1 : 1 }, () => {
     shape(ctx, [[-60, 0], [10, -130], [30, -120], [60, 0]], { fill: '#7C8B99', lw: 5, smooth: false });
     shape(ctx, [[10, -130], [30, -120], [60, 0], [24, 0]], { fill: '#667482', stroke: null });
