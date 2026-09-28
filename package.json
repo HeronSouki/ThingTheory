@@ -1,0 +1,14 @@
+{
+  "name": "thing-theory-biomes",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Code-driven animation for the Thing Theory episode: How long would Greg survive in 5 biomes?",
+  "type": "module",
+  "scripts": {
+    "still": "node render/still.js",
+    "render": "node render/render.js"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "^0.1.65"
+  }
+}
