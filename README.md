@@ -56,6 +56,7 @@ tools/
   sfx.py               procedural sound effects (pops, whooshes, stamps, dings...)
   check_gaps.mjs       sanity check: no blank frames in the timeline
   grid.mjs             tile rendered stills into one review image
+  srt.py               captions (.srt) from the word timings
 ```
 
 Scenes never hard-code timestamps. They look up phrases in the narration, e.g.
