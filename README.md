@@ -28,6 +28,9 @@ node render/render.js --scale 0.5 --start 150 --end 265 --out out/jungle-preview
 # YouTube thumbnails -> out/thumbnails/*.jpg (1280x720) + *.png (1920x1080) + review_sheet.png
 node render/thumbnails.js
 
+# channel branding -> out/channel/pfp*.png (800x800), banner.jpg (2560x1440), banner_guides.png, preview.png
+node render/channel_art.js
+
 # stills / contact sheets for review
 node render/still.js 95.5 230          # -> out/stills/still_95.50.png ...
 node render/still.js --sheet 60 150 20 # -> 20 thumbnails between 1:00 and 2:30
