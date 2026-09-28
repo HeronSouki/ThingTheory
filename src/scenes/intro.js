@@ -48,12 +48,13 @@ export function build() {
       const camZ = keys(t, [[0, 1.12], [tFew, 1.12], [tFew + 0.6, 1.0], [tNothing, 1.0], [tNothing + 0.5, 1.12]]);
       const camX = keys(t, [[0, 960], [tFew, 960], [tFew + 0.6, 1080], [tNothing, 1080], [tNothing + 0.5, 900]]);
       withCam(ctx, { x: camX, y: 560, z: camZ }, () => {
-        const land = prog(t, 0, 0.35, E.inQuad);
-        if (t >= 0.33) sfx('thud', 'greg-lands');
+        // Greg is on screen from the very first frame (it doubles as the thumbnail) and does a little hop
+        if (t >= 0.25) sfx('pop', 'greg-hop');
         if (t >= tFew - 0.2) sfx('swoosh', 'scientist-in');
         if (t >= tDrop) sfx('stamp', 'drop-button', 0.6);
-        const gy = lerp(-300, 880, land);
-        const sq = t < 0.35 ? 1.1 : 1 - Math.sin(clamp((t - 0.35) / 0.3) * Math.PI) * 0.18;
+        const hop = Math.sin(clamp((t - 0.05) / 0.4) * Math.PI);
+        const gy = 880 - hop * 60;
+        const sq = t < 0.45 ? 1 + hop * 0.06 : 1 - Math.sin(clamp((t - 0.45) / 0.3) * Math.PI) * 0.12;
         const worried = t > tDrop + 0.2 && t < tNothing;
         const pose = t > tNothing ? 'shrug' : t < 1.1 ? 'wave' : worried ? 'hug' : 'stand';
         const expr = t < tFew ? 'happy' : worried ? 'nervous' : t > tNothing ? 'deadpan' : 'smile';
@@ -66,12 +67,12 @@ export function build() {
           moth(ctx, 820 + 72 + mt * 180, 880 - 160 - mt * 220 + Math.sin(mt * 9) * 20, 1.2, t);
         }
         // label
-        const lp = prog(t, 0.35, 0.5);
+        const lp = prog(t, -0.5, 0.5);
         if (t < tFew + 0.4) {
           const a = 1 - prog(t, tFew, 0.4);
           tx(ctx, { a }, () => {
             text(ctx, 'GREG', 1240, 360, { size: 140, font: 'marker', color: P.coral, stroke: P.ink, sw: 12, s: E.outBack(lp), r: -0.06 });
-            arrow(ctx, 1150, 420, 930, 480, { p: prog(t, 0.5, 0.4), bend: -0.3, lw: 8 });
+            arrow(ctx, 1150, 420, 930, 480, { p: prog(t, -0.4, 0.4), bend: -0.3, lw: 8 });
           });
         }
         // scientist slides in with the DROP button

@@ -1,6 +1,6 @@
 // 4:24 - 5:48  Level 3: the Sahara.
 import { P, shape, circle, ellipse, line, tx, text, tag, stamp, rrect, arrow, crossOut, checkMark, glow, swash, fillScreen, vgrad, measure, star } from '../engine/draw.js';
-import { W, H, E, clamp, lerp, prog, vis, popScale, cues, wiggle, TAU, hash, rng, mix } from '../engine/core.js';
+import { W, H, E, clamp, lerp, prog, vis, popScale, cues, wiggle, TAU, hash, rng, mix, rgba } from '../engine/core.js';
 import { drawPerson, walkPose } from '../chars/person.js';
 import { withCam, keys, thoughtBubble, inset, panel, banner, meter, sparkle, comicBurst, burstLines, calendarPage, skull, speech, flash, shake, thermometer, numberBadge, heatWaves, irisWipe } from '../ui.js';
 import { desertBG, notebookBG, bigLeaf, rock, cloud } from '../bg.js';
@@ -114,22 +114,27 @@ export function build() {
     draw(ctx, t) {
       notebookBG(ctx, t, { header: P.mustardD });
       const zoom = prog(t, tMiddle, 1.0, E.inOutCubic);
-      withCam(ctx, { x: lerp(960, 760, zoom), y: lerp(560, 520, zoom), z: lerp(1, 2.2, zoom) }, () => {
-        const k = 26; // px per degree
+      const SX = 600, SY = 580;
+      withCam(ctx, { x: lerp(960, SX, zoom), y: lerp(540, SY - 40, zoom), z: lerp(1, 1.7, zoom) }, () => {
+        const k = 15; // px per degree (same scale for both shapes)
         const over = prog(t, tUS + 0.4, 0.9, E.inOutCubic);
         const sp = popScale(t, tSize, Infinity, 0.45);
-        tx(ctx, { x: 760, y: 560, s: sp }, () => drawRegion(ctx, SAHARA, 0, 0, k, { fill: P.sand, lw: 6 }));
-        text(ctx, 'SAHARA', 760, 560, { size: 70, font: 'bold', color: P.mustardD, s: sp * (1 - zoom), stroke: P.white, sw: 8 });
+        tx(ctx, { x: SX, y: SY, s: sp }, () => drawRegion(ctx, SAHARA, 0, 0, k, { fill: P.sand, lw: 6 }));
+        text(ctx, 'SAHARA', SX, SY + 10, { size: 64, font: 'bold', color: P.mustardD, s: sp * (1 - zoom), stroke: P.white, sw: 8 });
         if (t > tUS - 0.2) {
           const up = popScale(t, tUS - 0.2, Infinity, 0.45);
-          tx(ctx, { x: lerp(1480, 760, over), y: lerp(560, 560, over), s: up, a: lerp(1, 0.55, over) }, () => drawRegion(ctx, USA, 0, 0, k, { fill: P.blue, lw: 6 }));
-          text(ctx, 'USA', lerp(1480, 760, over), lerp(560, 480, over), { size: 70, font: 'bold', color: P.blueDD, s: up * (1 - zoom), stroke: P.white, sw: 8 });
+          const ux = lerp(1380, SX, over);
+          tx(ctx, { x: ux, y: SY, s: up, a: 1 - zoom }, () => {
+            drawRegion(ctx, USA, 0, 0, k, { fill: rgba(P.blue, lerp(1, 0.3, over)), stroke: 'rgba(0,0,0,0)', lw: 1 });
+            drawRegion(ctx, USA, 0, 0, k, { fill: 'rgba(0,0,0,0)', stroke: over > 0.2 ? P.blueDD : P.ink, lw: 6 });
+          });
+          text(ctx, 'USA', ux, lerp(SY + 10, SY - 150, over), { size: 64, font: 'bold', color: P.blueDD, s: up * (1 - zoom), stroke: P.white, sw: 8 });
         }
-        if (over > 0.9 && zoom < 0.3) text(ctx, '≈ SAME SIZE', 760, 820, { size: 80, font: 'bold', color: P.ink, s: popScale(t, tUS + 1.2, Infinity, 0.4) });
+        if (over > 0.5 && zoom < 0.5) text(ctx, 'ABOUT THE SAME SIZE', 1260, 580, { size: 76, font: 'bold', color: P.ink, s: popScale(t, tUS + 0.8, Infinity, 0.35), a: 1 - zoom * 2, maxW: 640 });
         if (t > tMiddle) {
           const gs = popScale(t, tMiddle + 0.3, Infinity, 0.4);
-          pin(ctx, 760, 560, P.red, 0.6 * gs);
-          text(ctx, 'GREG', 760, 490, { size: 28, font: 'bold', color: P.red, s: gs, stroke: P.white, sw: 5 });
+          pin(ctx, SX, SY, P.red, 0.8 * gs);
+          text(ctx, 'GREG', SX, SY - 90, { size: 40, font: 'bold', color: P.red, s: gs, stroke: P.white, sw: 6 });
         }
       });
       text(ctx, 'THE SAHARA vs THE USA', 960, 120, { size: 70, font: 'marker', a: 1 - zoom });
