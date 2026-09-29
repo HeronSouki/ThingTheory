@@ -1,0 +1,28 @@
+{
+  "id": "001-greg-biomes",
+  "title": "How Long Would You Survive With Nothing?",
+  "end": 596.5,
+  "align": {
+    "respell": {
+      "yuliana": "juliana",
+      "trenchfoot": "trench foot",
+      "fairytale": "fairy tale",
+      "snowdrift": "snow drift",
+      "tuareg": "twa reg"
+    },
+    "pronunciations": {
+      "juliana": "JH UW L IY AA N AH",
+      "kepka": "K EH P K AH",
+      "inuit": "IH N UW IH T",
+      "twa": "T W AA",
+      "reg": "R EH G",
+      "grubs": "G R AH B Z",
+      "cattail": "K AE T T EY L",
+      "debris": "D AH B R IY",
+      "snowdrift": "S N OW D R IH F T",
+      "anacondas": "AE N AH K AA N D AH Z",
+      "shirtless": "SH ER T L AH S",
+      "thirstier": "TH ER S T IY ER"
+    }
+  }
+}

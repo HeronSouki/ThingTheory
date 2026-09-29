@@ -1,0 +1,4 @@
+# Python tools: sound effects (tools/sfx.py), forced alignment (tools/align.py), ffmpeg binary
+numpy
+imageio-ffmpeg
+pocketsphinx

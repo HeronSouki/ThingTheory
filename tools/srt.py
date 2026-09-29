@@ -1,15 +1,18 @@
-"""Build an .srt caption file from the word-level alignment.
+"""Build an .srt caption file from an episode's word-level alignment.
 
-usage: python3 tools/srt.py [out.srt]
+usage: python3 tools/srt.py [--ep 001] [out.srt]     (default out/<episode>/<episode>.srt)
 """
 import json
 import os
 import re
 import sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-words = [w for w in json.load(open(os.path.join(ROOT, 'assets', 'words.json'))) if w['w']]
-out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, 'out', 'greg-biomes.srt')
+from episode import ROOT, resolve, episode_arg
+
+EP_ID, EP_DIR, _ = resolve(episode_arg(sys.argv))
+words = [w for w in json.load(open(os.path.join(EP_DIR, 'words.json'))) if w['w']]
+out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, 'out', EP_ID, f'{EP_ID}.srt')
+os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
 
 MAX_CHARS, MAX_DUR = 42, 3.2
 

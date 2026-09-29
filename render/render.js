@@ -1,29 +1,30 @@
-// Full render in one pass:
+// Full render of one episode in one pass:
 //   1. parallel "scan" workers collect sound-effect cues (tiny canvas, fast)
 //   2. tools/sfx.py synthesizes the SFX track
 //   3. parallel "stream" workers render frames; they are interleaved in order into a
 //      single ffmpeg process that encodes H.264 and mixes narration + SFX at the same time.
 //
-//   node render/render.js [--workers 4] [--scale 1] [--start 0] [--end 596.5]
-//                         [--out out/greg-biomes.mp4] [--no-sfx] [--crf 18] [--preset medium]
+//   node render/render.js [--ep 001] [--workers 4] [--scale 1] [--start 0] [--end <episode end>]
+//                         [--out out/<episode>/<episode>.mp4] [--no-sfx] [--crf 18] [--preset medium]
+//   --ep defaults to the newest episode; --scale below 1 writes <episode>-preview.mp4 instead.
 import { spawn, spawnSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { ROOT } from './host.js';
+import { ROOT, resolveEpisode, parseArgs } from './host.js';
 import { FFMPEG } from './ffmpeg.js';
-import { END_TIME } from '../src/main.js';
 
-const args = process.argv.slice(2);
-const opt = (name, def) => { const i = args.indexOf('--' + name); return i >= 0 ? args[i + 1] : def; };
-const flag = (name) => args.includes('--' + name);
+const { flags } = parseArgs();
+const opt = (name, def) => (flags[name] !== undefined && flags[name] !== true ? flags[name] : def);
+const flag = (name) => flags[name] !== undefined;
+const ep = resolveEpisode(flags.ep);
 const FPS = 30;
 const workers = parseInt(opt('workers', String(Math.max(1, os.cpus().length))), 10);
 const scale = parseFloat(opt('scale', '1'));
 const start = parseFloat(opt('start', '0'));
-const end = parseFloat(opt('end', String(END_TIME)));
-const out = path.resolve(ROOT, opt('out', 'out/greg-biomes.mp4'));
-const work = path.join(ROOT, 'out', 'work');
+const end = parseFloat(opt('end', String(ep.end)));
+const out = path.resolve(ROOT, opt('out', path.join(ep.out, `${ep.id}${scale < 1 ? '-preview' : ''}.mp4`)));
+const work = path.join(ep.out, 'work');
 fs.mkdirSync(work, { recursive: true });
 fs.mkdirSync(path.dirname(out), { recursive: true });
 
@@ -44,7 +45,7 @@ if (!flag('no-sfx')) {
   await Promise.all(Array.from({ length: workers }, (_, i) => {
     const ev = path.join(work, `ev_${i}.json`);
     evFiles.push(ev);
-    return runAsync(process.execPath, [worker, 'scan', String(F0), String(F1), String(i), String(workers), ev]);
+    return runAsync(process.execPath, [worker, ep.id, 'scan', String(F0), String(F1), String(i), String(workers), ev]);
   }));
   const merged = new Map();
   for (const f of evFiles) for (const e of JSON.parse(fs.readFileSync(f, 'utf8'))) {
@@ -60,26 +61,31 @@ if (!flag('no-sfx')) {
 }
 
 // ---- 2. ffmpeg: raw frames from stdin + narration (+ sfx) -> mp4 -------------------
-const narration = path.join(ROOT, 'assets', 'narration.mp3');
+const narration = ep.file('narration.mp3');
 const ffArgs = ['-hide_banner', '-loglevel', 'error', '-y',
-  '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', `${W}x${H}`, '-r', String(FPS), '-i', '-',
-  '-ss', String(start), '-i', narration];
-let filter = `[1:a]aresample=44100,apad,atrim=0:${dur}[nar]`;
-let amap = '[nar]';
+  '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', `${W}x${H}`, '-r', String(FPS), '-i', '-'];
+const tracks = [];
+if (fs.existsSync(narration)) {
+  ffArgs.push('-ss', String(start), '-i', narration);
+  tracks.push('nar');
+} else console.warn(`${ep.id}: no narration.mp3 yet, rendering without voice-over`);
 if (sfxWav) {
   ffArgs.push('-i', sfxWav);
-  filter += `;[2:a]aresample=44100,apad,atrim=0:${dur}[fx];[nar][fx]amix=inputs=2:normalize=0:duration=first[mix]`;
-  amap = '[mix]';
+  tracks.push('fx');
 }
-ffArgs.push('-filter_complex', filter, '-map', '0:v', '-map', amap,
-  '-c:v', 'libx264', '-preset', opt('preset', 'medium'), '-tune', 'animation', '-crf', opt('crf', scale < 1 ? '23' : '18'),
-  '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', '-t', String(dur), out);
+const filters = tracks.map((name, i) => `[${i + 1}:a]aresample=44100,apad,atrim=0:${dur}[${name}]`);
+if (tracks.length === 2) filters.push('[nar][fx]amix=inputs=2:normalize=0:duration=first[mix]');
+const amap = tracks.length === 2 ? '[mix]' : tracks.length ? `[${tracks[0]}]` : null;
+if (amap) ffArgs.push('-filter_complex', filters.join(';'), '-map', '0:v', '-map', amap, '-c:a', 'aac', '-b:a', '192k');
+else ffArgs.push('-map', '0:v', '-an');
+ffArgs.push('-c:v', 'libx264', '-preset', opt('preset', 'medium'), '-tune', 'animation', '-crf', opt('crf', scale < 1 ? '23' : '18'),
+  '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-t', String(dur), out);
 const ff = spawn(FFMPEG, ffArgs, { stdio: ['pipe', 'inherit', 'inherit'] });
 const ffDone = new Promise((res, rej) => ff.on('close', (c) => (c === 0 ? res() : rej(new Error('ffmpeg exited ' + c)))));
 
 // ---- 3. interleave frames from parallel workers ---------------------------------
-console.log(`rendering ${nFrames} frames (${dur.toFixed(1)}s) at ${W}x${H} with ${workers} workers`);
-const readers = Array.from({ length: workers }, (_, i) => frameReader(spawn(process.execPath, [worker, 'stream', String(F0), String(F1), String(i), String(workers), String(scale)], { stdio: ['ignore', 'pipe', 'inherit'] })));
+console.log(`${ep.id}: rendering ${nFrames} frames (${dur.toFixed(1)}s) at ${W}x${H} with ${workers} workers`);
+const readers = Array.from({ length: workers }, (_, i) => frameReader(spawn(process.execPath, [worker, ep.id, 'stream', String(F0), String(F1), String(i), String(workers), String(scale)], { stdio: ['ignore', 'pipe', 'inherit'] })));
 for (let f = 0; f < nFrames; f++) {
   const frame = await readers[f % workers].next();
   if (!frame) throw new Error(`worker ${f % workers} ended early at frame ${f}`);

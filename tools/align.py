@@ -1,14 +1,22 @@
-"""Forced-align the narration script to the audio with pocketsphinx.
+"""Forced-align an episode's script to its narration with pocketsphinx.
 
-Produces assets/words.json: [{"w": display word, "n": normalized word, "s": start sec, "e": end sec}, ...]
-The script's (m:ss) markers are used as anchors so each chunk is aligned against a short audio window.
+usage: python3 tools/align.py [--ep 001]      (npm run align -- --ep 001)
+
+Reads  episodes/<ep>/script.txt and narration.mp3
+Writes episodes/<ep>/words.json     [{"w": display word, "n": normalized word, "s": start sec, "e": end sec}, ...]
+       episodes/<ep>/envelope.json  per-frame (30 fps) loudness 0..1, drives mouth flaps
+
+Words the dictionary does not know, or that the narrator says differently from how they are
+spelled, go in episode.json -> "align": {"respell": {...}, "pronunciations": {...}} (ARPAbet).
+The script's (m:ss) markers are only used to report drift; the whole file is aligned at once.
 """
-import json, re, sys, os
-from pocketsphinx import Decoder, Config
-import pocketsphinx
+import array, json, math, re, subprocess, sys, os
+from pocketsphinx import Decoder
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-RAW = sys.argv[1]  # 16 kHz mono s16le
+from episode import resolve, episode_arg, ffmpeg
+
+EP_ID, EP_DIR, META = resolve(episode_arg(sys.argv))
+ALIGN = META.get('align', {})
 SR = 16000
 
 ONES = "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen".split()
@@ -25,11 +33,7 @@ def num_words(n):
         return num_words(n // 100) + " " + num_words(n % 100)
     raise ValueError(n)
 
-SPECIAL = {
-    "yuliana": "juliana", "kepka": "kepka", "i": "i", "gastrointestinal": "gastrointestinal",
-    "trenchfoot": "trench foot", "fairytale": "fairy tale", "snowdrift": "snow drift",
-    "tuareg": "twa reg", "inuit": "inuit",
-}
+SPECIAL = ALIGN.get("respell", {})
 
 def normalize_token(tok):
     """Return list of normalized words for one display token."""
@@ -51,7 +55,7 @@ def normalize_token(tok):
             out.append(p)
     return out
 
-text = open(os.path.join(ROOT, "assets", "script.txt")).read()
+text = open(os.path.join(EP_DIR, "script.txt")).read()
 # Tokenize keeping timestamp markers
 tokens = re.findall(r"\(\d+:\d+\)|[^\s]+", text)
 chunks = []  # each: {"t": anchor time, "tokens": [...]}
@@ -66,32 +70,18 @@ for tok in tokens:
 chunks.append(cur)
 chunks = [c for c in chunks if c["tokens"]]
 
-audio = open(RAW, "rb").read()
+# decode the narration to 16 kHz mono s16le
+audio = subprocess.run([ffmpeg(), "-v", "error", "-threads", "1", "-i", os.path.join(EP_DIR, "narration.mp3"),
+                        "-ac", "1", "-ar", str(SR), "-f", "s16le", "-"], check=True, stdout=subprocess.PIPE).stdout
 total = len(audio) / 2 / SR
 
 dec = Decoder(samprate=SR, loglevel="FATAL", bestpath=False)
 
-# pronunciations for OOV words
-extra = {
-    "juliana": "JH UW L IY AA N AH",
-    "kepka": "K EH P K AH",
-    "inuit": "IH N UW IH T",
-    "twa": "T W AA",
-    "reg": "R EH G",
-    "grubs": "G R AH B Z",
-    "cattail": "K AE T T EY L",
-    "debris": "D AH B R IY",
-    "snowdrift": "S N OW D R IH F T",
-}
-for w, p in extra.items():
+# extra pronunciations (ARPAbet) for names and words missing from the dictionary
+PRON = ALIGN.get("pronunciations", {})
+for w, p in PRON.items():
     if dec.lookup_word(w) is None:
         dec.add_word(w, p, True)
-
-OOV_PRON = {
-    "anacondas": "AE N AH K AA N D AH Z",
-    "shirtless": "SH ER T L AH S",
-    "thirstier": "TH ER S T IY ER",
-}
 
 def lookup_ok(w):
     return dec.lookup_word(w) is not None
@@ -104,8 +94,8 @@ for c in chunks:
         ws = normalize_token(tok)
         for j, w in enumerate(ws):
             if not lookup_ok(w):
-                print("OOV:", w, file=sys.stderr)
-                dec.add_word(w, OOV_PRON.get(w, "AH"), True)
+                print(f'OOV: "{w}" (add it to episode.json align.pronunciations)', file=sys.stderr)
+                dec.add_word(w, "AH", True)
             disp.append(tok if j == 0 else "")
             norm.append(w)
 dec.set_align_text(" ".join(norm))
@@ -125,5 +115,18 @@ for (w, ws, we), d in zip(words, disp):
 for idx, t in anchors:
     print(f"anchor {t:6.1f}  aligned {words[idx][1]:7.2f}  diff {words[idx][1]-t:+.2f}  {' '.join(norm[idx:idx+5])}", file=sys.stderr)
 
-json.dump(results, open(os.path.join(ROOT, "assets", "words.json"), "w"), indent=0)
+json.dump(results, open(os.path.join(EP_DIR, "words.json"), "w"), indent=0)
 print("words:", len(results), "duration:", total)
+
+# per-frame loudness envelope (30 fps), normalized to the 98th percentile
+raw = array.array("h", audio)
+fps = 30
+hop = SR // fps
+vals = []
+for i in range(0, len(raw) // hop):
+    seg = raw[i * hop:(i + 1) * hop]
+    vals.append(math.sqrt(sum(x * x for x in seg) / len(seg)))
+mx = sorted(vals)[int(len(vals) * 0.98)]
+env = [round(min(1.0, v / mx), 3) for v in vals]
+json.dump(env, open(os.path.join(EP_DIR, "envelope.json"), "w"))
+print("envelope frames:", len(env))

@@ -1,0 +1,2 @@
+(0:00) Paste the final narration script here, exactly as it is read.
+Keep the rough (m:ss) markers if you have them: the aligner reports drift against them.

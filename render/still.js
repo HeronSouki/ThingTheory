@@ -1,14 +1,15 @@
 // Render still frames or a contact sheet for review.
-//   node render/still.js 12.5 30 61            -> PNGs in ./out/stills
-//   node render/still.js --sheet 60 150 24     -> contact sheet of 24 frames between 60s and 150s
-import { setupHost, createCanvas, ROOT } from './host.js';
-import { renderFrame } from '../src/main.js';
+//   node render/still.js [--ep 001] 12.5 30 61          -> PNGs in out/<episode>/stills
+//   node render/still.js [--ep 001] --sheet 60 150 24   -> contact sheet of 24 frames between 60s and 150s
+import { loadEpisode, createCanvas, parseArgs } from './host.js';
 import fs from 'fs';
 import path from 'path';
 
-setupHost();
-const args = process.argv.slice(2);
-const outDir = process.env.OUT || path.join(ROOT, 'out', 'stills');
+const { flags, rest } = parseArgs(process.argv.slice(2).map((a) => (a === '--sheet' ? '--sheet=1' : a)));
+const ep = await loadEpisode(flags.ep);
+const { renderFrame } = ep;
+const args = flags.sheet ? ['--sheet', ...rest] : rest;
+const outDir = process.env.OUT || path.join(ep.out, 'stills');
 fs.mkdirSync(outDir, { recursive: true });
 const c = createCanvas(1920, 1080);
 const ctx = c.getContext('2d');

@@ -1,14 +1,33 @@
 {
-  "name": "thing-theory-biomes",
+  "name": "thing-theory",
   "version": "1.0.0",
   "private": true,
-  "description": "Code-driven animation for the Thing Theory episode: How long would Greg survive in 5 biomes?",
+  "description": "Thing Theory YouTube channel: code-driven animated explainers, channel art and publishing kit.",
   "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "imports": {
+    "#lib/*": "./lib/*"
+  },
   "scripts": {
+    "render": "node render/render.js",
+    "preview": "node render/render.js --scale 0.5 --preset veryfast",
     "still": "node render/still.js",
-    "render": "node render/render.js"
+    "sheet": "node render/still.js --sheet",
+    "thumbnails": "node render/thumbnails.js",
+    "channel-art": "node channel/art.js",
+    "catalog": "node tools/catalog.mjs",
+    "align": "python3 tools/align.py",
+    "captions": "python3 tools/srt.py",
+    "check": "eslint . && node tools/check_gaps.mjs",
+    "new-episode": "node tools/new-episode.mjs"
   },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.65"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.0",
+    "globals": "^17.0.0"
   }
 }
